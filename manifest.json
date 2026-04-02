@@ -2,7 +2,7 @@
   "name": "OBuddy — Calm Parenting",
   "short_name": "OBuddy",
   "description": "Calm guidance. Confident parenting. For toddlers aged 1-5.",
-  "start_url": "/",
+  "start_url": "/OBuddy/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#FAF6F0",
