@@ -11,6 +11,7 @@ import 'screens/insights_screen.dart';
 import 'screens/guidance_result_screen.dart';
 import 'screens/food_today_screen.dart';
 import 'screens/life_skills_screen.dart';
+import 'screens/temperament_quiz_screen.dart';
 import 'models/child_profile.dart';
 import 'models/path_progress.dart';
 import 'models/today_item.dart';
@@ -41,18 +42,28 @@ class _AppShellState extends State<AppShell> {
   int _currentTab = 0;
 
   // ── Demo data (will be replaced with Firebase) ──
-  final _child = ChildProfile(
+  ChildProfile _child = ChildProfile(
     id: 'demo_child',
     name: 'Oliver',
     dob: DateTime(2024, 1, 15),
     temperament: const TemperamentProfile(
       primaryType: 'strong-willed',
+      secondaryType: 'independent',
       traits: {
-        'persistence': 80,
+        'persistence': 85,
         'sensitivity': 40,
-        'independence': 70,
+        'independence': 72,
         'caution': 25,
+        'adaptability': 35,
       },
+    ),
+    rhythm: RhythmState(
+      currentPhase: 'boundary-testing',
+      confidence: 'high',
+      explanation:
+          'Oliver has shown increased pushback and limit-testing recently. '
+          'This is normal — he\'s checking the walls are still there.',
+      detectedAt: DateTime.now(),
     ),
   );
 
@@ -172,6 +183,26 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  void _navigateToQuiz() {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 400),
+        pageBuilder: (_, __, ___) => TemperamentQuizScreen(
+          childName: _child.name,
+          onComplete: (profile) {
+            setState(() {
+              _child = _child.copyWith(temperament: profile);
+            });
+            Navigator.of(context).pop();
+          },
+        ),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -207,7 +238,8 @@ class _AppShellState extends State<AppShell> {
         return TodayScreen(
           key: const ValueKey('today'),
           items: _todayItems,
-          smartNudge: 'Today may feel harder after nursery. You might want an earlier bedtime.',
+          smartNudge:
+              'Today may feel harder after nursery. You might want an earlier bedtime.',
         );
       case 3:
         return QuickHelpScreen(

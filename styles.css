@@ -158,6 +158,14 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .btn-sage:active{background:var(--sage-dark)}
 .btn-outline{background:transparent;color:var(--sage);border:1.5px solid rgba(111,168,152,0.3)}
 
+/* ── Quiz Styles ── */
+.quiz-option{cursor:pointer;transition:all 0.15s ease}
+.quiz-option:active{transform:scale(0.97)}
+.quiz-selected{background:rgba(111,168,152,0.06)!important;border-color:rgba(111,168,152,0.3)!important}
+.quiz-radio{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;color:transparent;flex-shrink:0;margin-right:12px;transition:all 0.15s ease}
+.quiz-radio-on{background:var(--sage);border-color:var(--sage);color:#fff}
+.t-heading{font-size:20px;font-weight:600;line-height:1.35;color:var(--text)}
+
 /* ── Utilities ── */
 .hidden{display:none!important}
 .w-full{width:100%}
