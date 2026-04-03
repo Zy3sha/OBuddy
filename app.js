@@ -431,10 +431,10 @@ function renderOnboarding() {
         <div class="t-display">What's your child's name?</div>
         <p class="t-small t-muted mt-sm">You can add more children later.</p>
         <div class="mt-lg">
-          <input type="text" id="ob-name" class="ob-input" placeholder="First name" value="${onboardingChildName}" oninput="onboardingChildName=this.value" autocapitalize="words" style="font-size:22px;font-weight:600;border:none;outline:none;background:none;width:100%;padding:8px 0;color:var(--text);border-bottom:2px solid var(--sage)">
+          <input type="text" id="ob-name" class="ob-input" placeholder="First name" value="${onboardingChildName}" oninput="obNameInput(this)" autocapitalize="words" style="font-size:22px;font-weight:600;border:none;outline:none;background:none;width:100%;padding:8px 0;color:var(--text);border-bottom:2px solid var(--sage)">
         </div>
         <div style="flex:1"></div>
-        <button class="btn btn-sage" style="width:100%;opacity:${onboardingChildName?1:0.4}" onclick="${onboardingChildName ? 'onboardingNext()' : ''}">Continue</button>`;
+        <button id="ob-name-btn" class="btn btn-sage" style="width:100%;opacity:${onboardingChildName?1:0.4}" onclick="onboardingChildName.trim() && onboardingNext()">Continue</button>`;
       break;
     case 'childDob':
       content = `
@@ -442,10 +442,10 @@ function renderOnboarding() {
         <div class="t-display">When were they born?</div>
         <p class="t-small t-muted mt-sm">We use this to tailor guidance to their developmental stage.</p>
         <div class="mt-lg">
-          <input type="date" id="ob-dob" class="ob-input" value="${onboardingChildDob}" onchange="onboardingChildDob=this.value" style="font-size:18px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);width:100%">
+          <input type="date" id="ob-dob" class="ob-input" value="${onboardingChildDob}" onchange="onboardingChildDob=this.value;obUpdateBtn('ob-dob-btn',this.value)" style="font-size:18px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);width:100%">
         </div>
         <div style="flex:1"></div>
-        <button class="btn btn-sage" style="width:100%;opacity:${onboardingChildDob?1:0.4}" onclick="${onboardingChildDob ? 'onboardingSaveChild()' : ''}">Continue</button>`;
+        <button id="ob-dob-btn" class="btn btn-sage" style="width:100%;opacity:${onboardingChildDob?1:0.4}" onclick="onboardingChildDob && onboardingSaveChild()">Continue</button>`;
       break;
     case 'addAnother':
       content = `
@@ -475,17 +475,17 @@ function renderOnboarding() {
         <div class="t-display">Invite your co-parent</div>
         <p class="t-body t-muted mt-sm">Both carers see the same guidance, the same scripts, the same boundaries. Consistency made easy.</p>
         <div class="mt-lg">
-          <input type="text" class="ob-input" placeholder="Their name" value="${onboardingPartnerName}" oninput="onboardingPartnerName=this.value" style="font-size:16px;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);width:100%;margin-bottom:12px">
+          <input type="text" class="ob-input" placeholder="Their name" value="${onboardingPartnerName}" oninput="onboardingPartnerName=this.value;obUpdateBtn('ob-partner-btn',this.value)" style="font-size:16px;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);width:100%;margin-bottom:12px">
           <input type="email" class="ob-input" placeholder="Email (optional)" value="${onboardingPartnerEmail}" oninput="onboardingPartnerEmail=this.value" style="font-size:16px;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);width:100%;margin-bottom:12px">
           <div class="row gap-sm" style="flex-wrap:wrap">
             ${['Co-parent','Grandparent','Nanny','Other'].map(r => `<span class="chip ${onboardingPartnerRole===r?'chip-sage':'chip-muted'}" onclick="onboardingPartnerRole='${r}';render()" style="cursor:pointer">${r}</span>`).join('')}
           </div>
         </div>
         <div style="flex:1"></div>
-        <button class="btn btn-sage" style="width:100%;opacity:${onboardingPartnerName?1:0.4}" onclick="${onboardingPartnerName ? 'onboardingSavePartner();onboardingNext()' : 'onboardingNext()'}">
+        <button id="ob-partner-btn" class="btn btn-sage" style="width:100%" onclick="if(onboardingPartnerName.trim()){onboardingSavePartner()}onboardingNext()">
           ${onboardingPartnerName ? 'Send invite' : 'Not right now'}
         </button>
-        ${onboardingPartnerName ? '<button class="btn-text mt-sm" style="width:100%;text-align:center;color:var(--text-lt);background:none;border:none;padding:12px;cursor:pointer" onclick="onboardingNext()">Not right now</button>' : ''}`;
+        <button class="btn-text mt-sm" style="width:100%;text-align:center;color:var(--text-lt);background:none;border:none;padding:12px;cursor:pointer" onclick="onboardingNext()">Skip</button>`;
       break;
     case 'done':
       content = `
@@ -509,6 +509,18 @@ function renderOnboarding() {
       <div class="row mb-lg" style="padding-top:8px;justify-content:center;gap:6px">${dots}</div>
       ${content}
     </div>`;
+}
+
+// Update a button's opacity based on whether a value is truthy
+function obUpdateBtn(btnId, val) {
+  const btn = document.getElementById(btnId);
+  if (btn) btn.style.opacity = val && val.trim() ? 1 : 0.4;
+}
+
+// Handle name input — update variable + button without full re-render
+function obNameInput(el) {
+  onboardingChildName = el.value;
+  obUpdateBtn('ob-name-btn', el.value);
 }
 
 function onboardingNext() { const steps = getOnboardingSteps(); if (onboardingStep < steps.length - 1) { onboardingStep++; render(); } }
