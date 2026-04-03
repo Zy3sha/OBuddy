@@ -5,6 +5,8 @@ class ChildProfile {
   final String? photoUrl;
   final TemperamentProfile? temperament;
   final RhythmState? rhythm;
+  final bool quizCompleted;
+  final bool migratedFromOBubba;
 
   const ChildProfile({
     required this.id,
@@ -13,6 +15,8 @@ class ChildProfile {
     this.photoUrl,
     this.temperament,
     this.rhythm,
+    this.quizCompleted = false,
+    this.migratedFromOBubba = false,
   });
 
   int get ageInMonths {
@@ -40,6 +44,10 @@ class ChildProfile {
     return '4-5';
   }
 
+  /// Whether the recalibration check-in is due.
+  bool get recalibrationDue =>
+      quizCompleted && (temperament?.recalibrationDue ?? false);
+
   ChildProfile copyWith({
     String? id,
     String? name,
@@ -47,6 +55,8 @@ class ChildProfile {
     String? photoUrl,
     TemperamentProfile? temperament,
     RhythmState? rhythm,
+    bool? quizCompleted,
+    bool? migratedFromOBubba,
   }) {
     return ChildProfile(
       id: id ?? this.id,
@@ -55,6 +65,8 @@ class ChildProfile {
       photoUrl: photoUrl ?? this.photoUrl,
       temperament: temperament ?? this.temperament,
       rhythm: rhythm ?? this.rhythm,
+      quizCompleted: quizCompleted ?? this.quizCompleted,
+      migratedFromOBubba: migratedFromOBubba ?? this.migratedFromOBubba,
     );
   }
 }

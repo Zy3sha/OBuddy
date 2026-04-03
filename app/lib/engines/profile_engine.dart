@@ -10,9 +10,34 @@ class ProfileEngine {
   // QUIZ SCORING
   // ────────────────────────────────────────────────────────
 
-  /// Score the temperament quiz from a list of answer score maps.
-  /// Each answer is a Map<String, double> mapping temperament id to score.
-  static TemperamentProfile scoreQuiz(List<Map<String, double>> answers) {
+  /// Score the temperament quiz, optionally blending with existing trait data
+  /// from OBubba behaviour incidents (for migrating users).
+  ///
+  /// [questions] and [answerIndices] are used when called from the quiz screen.
+  /// [answers] is the legacy format (list of score maps).
+  /// [existingTraits] blends prior incident-based scores at 30% weight.
+  static TemperamentProfile scoreQuiz(
+    dynamic questionsOrAnswers, [
+    List<int>? answerIndices,
+    Map<String, double>? existingTraits,
+  ]) {
+    // Support both calling conventions
+    List<Map<String, double>> answers;
+    if (questionsOrAnswers is List<TemperamentQuizQuestion> && answerIndices != null) {
+      answers = [];
+      for (var i = 0; i < questionsOrAnswers.length; i++) {
+        answers.add(questionsOrAnswers[i].options[answerIndices[i]].scores);
+      }
+    } else {
+      answers = questionsOrAnswers as List<Map<String, double>>;
+    }
+    return _scoreFromAnswers(answers, existingTraits: existingTraits);
+  }
+
+  static TemperamentProfile _scoreFromAnswers(
+    List<Map<String, double>> answers, {
+    Map<String, double>? existingTraits,
+  }) {
     final totals = <String, double>{
       'strong-willed': 0,
       'sensitive': 0,
@@ -48,6 +73,20 @@ class ProfileEngine {
     for (final entry in totals.entries) {
       final traitKey = traitMap[entry.key];
       if (traitKey != null) traits[traitKey] = entry.value;
+    }
+
+    // Blend with existing incident-based traits (30% weight for history)
+    if (existingTraits != null) {
+      for (final entry in existingTraits.entries) {
+        traits[entry.key] = (traits[entry.key] ?? 0) * 0.7 + entry.value * 0.3;
+      }
+      // Re-normalise after blending
+      final blendMax = traits.values.reduce((a, b) => a > b ? a : b);
+      if (blendMax > 0) {
+        for (final key in traits.keys) {
+          traits[key] = ((traits[key]! / blendMax) * 100).clamp(0, 100);
+        }
+      }
     }
 
     // Determine primary + secondary

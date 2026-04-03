@@ -26,7 +26,10 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
     final temperament = child.temperament;
-    final rhythm = child.rhythm;
+    final typeDef = temperament != null ? ProfileEngine.getType(temperament.primaryType) : null;
+    final secondaryDef = temperament?.secondaryType != null
+        ? ProfileEngine.getType(temperament!.secondaryType!)
+        : null;
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -55,63 +58,165 @@ class ProfileScreen extends StatelessWidget {
                     alignment: Alignment.center,
                     child: Text(
                       child.name.isNotEmpty ? child.name[0].toUpperCase() : '?',
-                      style: AppTextStyles.display.copyWith(
-                        color: AppColors.primaryDark,
-                      ),
+                      style: AppTextStyles.display.copyWith(color: AppColors.primaryDark),
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(child.name, style: AppTextStyles.display),
                   const SizedBox(height: 4),
-                  Text(child.ageLabel,
-                      style: AppTextStyles.body
-                          .copyWith(color: AppColors.textMuted)),
+                  Text(child.ageLabel, style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
                 ],
               ),
             ),
             const SizedBox(height: AppTheme.spacingLg),
 
-            // ── Temperament Profile ──
-            if (temperament != null) ...[
+            // ── Temperament profile ──
+            if (typeDef != null) ...[
               const SectionHeader(title: 'Temperament'),
-              _TemperamentCard(temperament: temperament),
+              GlassCard(
+                padding: const EdgeInsets.all(AppTheme.spacingMd),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(typeDef.emoji, style: const TextStyle(fontSize: 28)),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              BadgeChip(label: typeDef.label, icon: Icons.psychology_rounded, color: AppColors.primarySage),
+                              if (secondaryDef != null) ...[
+                                const SizedBox(height: 4),
+                                Text('with ${secondaryDef.label.toLowerCase()} tendencies', style: AppTextStyles.small.copyWith(color: AppColors.textMuted)),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primarySage.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.star_rounded, size: 16, color: AppColors.primarySage),
+                          const SizedBox(width: 8),
+                          Text(typeDef.strengthLabel, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.primarySage)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(typeDef.description, style: AppTextStyles.body),
+                  ],
+                ),
+              ),
               const SizedBox(height: AppTheme.spacingMd),
 
               // Strengths
               const SectionHeader(title: 'Strengths'),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: ProfileEngine.getStrengths(temperament.primaryType)
-                    .map((s) => BadgeChip(
-                          label: s,
-                          color: AppColors.accentGreen,
-                        ))
-                    .toList(),
+                spacing: 8, runSpacing: 8,
+                children: typeDef.strengths.map((s) => BadgeChip(label: s, color: AppColors.accentGreen)).toList(),
               ),
               const SizedBox(height: AppTheme.spacingMd),
 
-              // What works best
-              const SectionHeader(title: 'What works best'),
-              _BulletList(
-                items: ProfileEngine.getWhatWorks(temperament.primaryType),
-                color: AppColors.primarySage,
+              // What works & avoid
+              GlassCard(
+                padding: const EdgeInsets.all(AppTheme.spacingMd),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('What works best', style: AppTextStyles.bodyMedium),
+                    const SizedBox(height: 8),
+                    ...typeDef.whatWorksBest.map((w) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('✓ ', style: TextStyle(color: AppColors.primarySage, fontSize: 13)),
+                        Expanded(child: Text(w, style: AppTextStyles.small)),
+                      ]),
+                    )),
+                    const Divider(height: 20),
+                    Text('What to avoid', style: AppTextStyles.bodyMedium),
+                    const SizedBox(height: 8),
+                    ...typeDef.whatToAvoid.map((a) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('✕ ', style: TextStyle(color: Colors.red.shade300, fontSize: 13)),
+                        Expanded(child: Text(a, style: AppTextStyles.small)),
+                      ]),
+                    )),
+                  ],
+                ),
               ),
               const SizedBox(height: AppTheme.spacingMd),
 
-              // What to avoid
-              const SectionHeader(title: 'What to avoid'),
-              _BulletList(
-                items: ProfileEngine.getWhatToAvoid(temperament.primaryType),
-                color: AppColors.accentRose,
+              // Daily
+              GlassCard(
+                padding: const EdgeInsets.all(AppTheme.spacingMd),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('What this looks like daily', style: AppTextStyles.bodyMedium),
+                    const SizedBox(height: 8),
+                    Text(typeDef.dailyLooksLike, style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppTheme.spacingLg),
+            ] else ...[
+              // No temperament — quiz nudge
+              const SectionHeader(title: 'Temperament'),
+              GlassCard(
+                padding: const EdgeInsets.all(AppTheme.spacingMd),
+                child: Column(children: [
+                  const Text('🧩', style: TextStyle(fontSize: 32)),
+                  const SizedBox(height: 8),
+                  Text('Discover ${child.name}\'s temperament', style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+                  const SizedBox(height: 4),
+                  Text('A 90-second quiz that unlocks personalised guidance.', style: AppTextStyles.small.copyWith(color: AppColors.textMuted), textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {},
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primarySage, foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('Take the quiz'),
+                    ),
+                  ),
+                ]),
               ),
               const SizedBox(height: AppTheme.spacingLg),
             ],
 
-            // ── Current Rhythm Phase ──
-            if (rhythm != null) ...[
+            // ── Rhythm phase ──
+            if (child.rhythm != null) ...[
               const SectionHeader(title: 'Current Phase'),
-              _RhythmCard(rhythm: rhythm),
+              GlassCard(
+                padding: const EdgeInsets.all(AppTheme.spacingMd),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    BadgeChip(label: child.rhythm!.currentPhase.replaceAll('-', ' '), icon: Icons.timeline_rounded, color: AppColors.primarySage),
+                    const SizedBox(height: 8),
+                    Text(child.rhythm!.explanation, style: AppTextStyles.body),
+                    const SizedBox(height: 6),
+                    BadgeChip(
+                      label: '${child.rhythm!.confidence} confidence',
+                      color: child.rhythm!.confidence == 'high' ? AppColors.primarySage : AppColors.accentAmber,
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: AppTheme.spacingLg),
             ],
 
@@ -123,270 +228,32 @@ class ProfileScreen extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.only(bottom: AppTheme.spacingSm),
                 child: GlassCard(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTheme.spacingMd,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    children: [
-                      Text(def.icon, style: const TextStyle(fontSize: 20)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(def.title, style: AppTextStyles.bodyMedium),
-                      ),
-                      ProgressRing(
-                        value: pp.progress,
-                        size: 36,
-                        strokeWidth: 3,
-                        child: Text(
-                          '${(pp.progress * 100).round()}%',
-                          style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primaryDark,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingMd, vertical: 12),
+                  child: Row(children: [
+                    Text(def.icon, style: const TextStyle(fontSize: 20)),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(def.title, style: AppTextStyles.bodyMedium)),
+                    ProgressRing(
+                      value: pp.progress, size: 36, strokeWidth: 3,
+                      child: Text('${(pp.progress * 100).round()}%', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
+                    ),
+                  ]),
                 ),
               );
             }),
             const SizedBox(height: AppTheme.spacingLg),
 
-            // ── Settings link ──
+            // ── Settings ──
             Center(
               child: TextButton.icon(
                 onPressed: () {},
                 icon: const Icon(Icons.settings_rounded, size: 18),
                 label: const Text('Settings'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.textMuted,
-                  textStyle: AppTextStyles.bodyMedium,
-                ),
+                style: TextButton.styleFrom(foregroundColor: AppColors.textMuted, textStyle: AppTextStyles.bodyMedium),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Full temperament display card with emoji, type, blend, strength reframe,
-/// and daily description.
-class _TemperamentCard extends StatelessWidget {
-  final TemperamentProfile temperament;
-  const _TemperamentCard({required this.temperament});
-
-  @override
-  Widget build(BuildContext context) {
-    final type = ProfileEngine.getType(temperament.primaryType);
-    final emoji = type?.emoji ?? '🌟';
-    final label = type?.label ?? temperament.primaryType.replaceAll('-', ' ');
-    final strengthLabel = type?.strengthLabel ?? '';
-    final daily = type?.dailyLooksLike ?? '';
-
-    return GlassCard(
-      padding: const EdgeInsets.all(AppTheme.spacingMd),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Primary badge
-          Row(
-            children: [
-              Text(emoji, style: const TextStyle(fontSize: 24)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    BadgeChip(
-                      label: label,
-                      icon: Icons.psychology_rounded,
-                      color: AppColors.primarySage,
-                    ),
-                    if (temperament.secondaryType != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'with ${temperament.secondaryType!.replaceAll('-', ' ')} tendencies',
-                        style: AppTextStyles.small
-                            .copyWith(color: AppColors.textMuted),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-          if (strengthLabel.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.accentGreen.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.auto_awesome, size: 14, color: AppColors.primarySage),
-                  const SizedBox(width: 6),
-                  Text(
-                    strengthLabel,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.primaryDark,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          if (daily.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              daily,
-              style: AppTextStyles.body.copyWith(
-                fontStyle: FontStyle.italic,
-                color: AppColors.textMuted,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Rhythm phase card showing current developmental phase.
-class _RhythmCard extends StatelessWidget {
-  final RhythmState rhythm;
-  const _RhythmCard({required this.rhythm});
-
-  @override
-  Widget build(BuildContext context) {
-    final phaseEmoji = _phaseEmojis[rhythm.currentPhase] ?? '🫧';
-    final phaseLabel = _phaseLabels[rhythm.currentPhase] ??
-        rhythm.currentPhase.replaceAll('-', ' ');
-
-    return GlassCard(
-      padding: const EdgeInsets.all(AppTheme.spacingMd),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(phaseEmoji, style: const TextStyle(fontSize: 22)),
-              const SizedBox(width: 8),
-              BadgeChip(
-                label: phaseLabel,
-                color: AppColors.accentLavender,
-              ),
-              const Spacer(),
-              _ConfidenceDot(confidence: rhythm.confidence),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            rhythm.explanation,
-            style: AppTextStyles.body,
-          ),
-          if (rhythm.secondaryPhase != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Also showing signs of: ${rhythm.secondaryPhase!.replaceAll('-', ' ')}',
-              style: AppTextStyles.small.copyWith(color: AppColors.textMuted),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  static const _phaseEmojis = {
-    'boundary-testing': '🧱',
-    'independence-surge': '🚀',
-    'sensitivity-wave': '🌊',
-    'connection-seeking': '🤗',
-    'skill-stretch': '🌱',
-    'cooperation-bloom': '🌻',
-    'reset-phase': '🫧',
-  };
-
-  static const _phaseLabels = {
-    'boundary-testing': 'Boundary Testing',
-    'independence-surge': 'Independence Surge',
-    'sensitivity-wave': 'Sensitivity Wave',
-    'connection-seeking': 'Connection Phase',
-    'skill-stretch': 'Skill Stretch',
-    'cooperation-bloom': 'Cooperation Bloom',
-    'reset-phase': 'Reset',
-  };
-}
-
-class _ConfidenceDot extends StatelessWidget {
-  final String confidence;
-  const _ConfidenceDot({required this.confidence});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = confidence == 'high'
-        ? AppColors.primarySage
-        : confidence == 'medium'
-            ? AppColors.accentAmber
-            : AppColors.textMuted;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          confidence,
-          style: AppTextStyles.label.copyWith(color: color),
-        ),
-      ],
-    );
-  }
-}
-
-/// Simple bullet list widget.
-class _BulletList extends StatelessWidget {
-  final List<String> items;
-  final Color color;
-  const _BulletList({required this.items, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(AppTheme.spacingMd),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: items
-            .map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        margin: const EdgeInsets.only(top: 6, right: 8),
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.5),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(item, style: AppTextStyles.body),
-                      ),
-                    ],
-                  ),
-                ))
-            .toList(),
       ),
     );
   }

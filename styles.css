@@ -158,6 +158,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .btn-sage:active{background:var(--sage-dark)}
 .btn-outline{background:transparent;color:var(--sage);border:1.5px solid rgba(111,168,152,0.3)}
 
+/* ── Onboarding ── */
+.ob-input:focus{outline:none;border-color:var(--sage)!important}
+.chip-muted{background:rgba(141,128,118,0.08);color:var(--text-mid);border:1px solid var(--border)}
+
 /* ── Quiz Styles ── */
 .quiz-option{cursor:pointer;transition:all 0.15s ease}
 .quiz-option:active{transform:scale(0.97)}

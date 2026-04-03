@@ -12,11 +12,16 @@ import '../models/child_profile.dart';
 class TemperamentQuizScreen extends StatefulWidget {
   final String childName;
   final ValueChanged<TemperamentProfile> onComplete;
+  final VoidCallback? onSkip;
+  /// Existing incident-based traits for blending (OBubba migrants).
+  final Map<String, double>? existingTraitScores;
 
   const TemperamentQuizScreen({
     super.key,
     required this.childName,
     required this.onComplete,
+    this.onSkip,
+    this.existingTraitScores,
   });
 
   @override
@@ -43,7 +48,11 @@ class _TemperamentQuizScreenState extends State<TemperamentQuizScreen> {
     _answers.add(_question.options[_selectedOption!].scores);
 
     if (_isLastQuestion) {
-      final profile = ProfileEngine.scoreQuiz(_answers);
+      final profile = ProfileEngine.scoreQuiz(
+        _answers,
+        null,
+        widget.existingTraitScores,
+      );
       widget.onComplete(profile);
       return;
     }
@@ -56,7 +65,11 @@ class _TemperamentQuizScreenState extends State<TemperamentQuizScreen> {
 
   void _back() {
     if (_currentQuestion == 0) {
-      Navigator.of(context).pop();
+      if (widget.onSkip != null) {
+        widget.onSkip!();
+      } else {
+        Navigator.of(context).pop();
+      }
       return;
     }
     setState(() {

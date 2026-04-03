@@ -9,16 +9,35 @@ let currentOverlay = null;
 let quizActive = false;
 let quizStep = 0;
 let quizAnswers = [];
-let helpTaps = []; // track which help categories are tapped for rhythm detection
+let helpTaps = [];
+let onboardingActive = true;
+let onboardingStep = 0;
+let onboardingIsMigrant = false;
 
-// ── Child Profile ──
-const childProfile = {
-  name: 'Oliver',
-  age: '2 yr 3m',
-  ageMonths: 27,
-  temperament: null, // set after quiz: { primaryType, secondaryType, traitScores }
-  rhythm: null, // detected: { phase, secondary, confidence, explanation }
+// ── Family (multi-child + partner) ──
+const family = {
+  children: [],       // [{name, age, ageMonths, temperament, rhythm, quizCompleted}]
+  activeChildIndex: 0,
+  partner: null,       // {name, role, email, status}
+  migratedFromOBubba: false,
 };
+
+// ── Active child shortcut ──
+function activeChild() { return family.children[family.activeChildIndex] || family.children[0]; }
+
+// Legacy alias
+const childProfile = { get name() { return activeChild()?.name || 'Child'; }, get age() { return activeChild()?.age || ''; },
+  get ageMonths() { return activeChild()?.ageMonths || 24; },
+  get temperament() { return activeChild()?.temperament; }, set temperament(v) { if (activeChild()) activeChild().temperament = v; },
+  get rhythm() { return activeChild()?.rhythm; }, set rhythm(v) { if (activeChild()) activeChild().rhythm = v; },
+};
+
+// ── Onboarding temp state ──
+let onboardingChildName = '';
+let onboardingChildDob = '';
+let onboardingPartnerName = '';
+let onboardingPartnerEmail = '';
+let onboardingPartnerRole = 'Co-parent';
 
 // ══════════════════════════════════════════════════════════════
 // TEMPERAMENT SYSTEM
@@ -369,6 +388,186 @@ function ringSvg(pct, size=44, stroke=3.5) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// ONBOARDING FLOW
+// ══════════════════════════════════════════════════════════════
+
+const onboardingSteps = ['welcome','childName','childDob','addAnother','quizIntro','partnerInvite','done'];
+const onboardingMigrantSteps = ['welcome','migration','addAnother','quizIntro','partnerInvite','done'];
+
+function getOnboardingSteps() { return onboardingIsMigrant ? onboardingMigrantSteps : onboardingSteps; }
+
+function renderOnboarding() {
+  const steps = getOnboardingSteps();
+  const step = steps[onboardingStep];
+  const total = steps.length;
+  const dots = steps.map((_,i) => `<div style="width:${i===onboardingStep?'24px':'8px'};height:8px;border-radius:4px;background:${i<=onboardingStep?'var(--sage)':'rgba(111,168,152,0.15)'};transition:all 0.3s"></div>`).join('');
+
+  let content = '';
+  switch (step) {
+    case 'welcome':
+      content = `
+        <div style="font-size:40px;margin-bottom:16px">🌿</div>
+        <div class="t-display">${onboardingIsMigrant ? 'Welcome back' : 'Welcome to OBuddy'}</div>
+        <p class="t-body t-muted mt-sm">${onboardingIsMigrant ? 'OBuddy is the next chapter of OBubba —<br>everything you had, plus so much more.' : 'Calm guidance. Confident parenting.<br>For toddlers aged 1–5.'}</p>
+        ${onboardingIsMigrant ? '<p class="t-small t-muted mt-md">We\'ve found your family data and brought it across. Nothing was lost.</p>' : ''}
+        <div style="flex:1"></div>
+        <button class="btn btn-sage" style="width:100%" onclick="onboardingNext()">${onboardingIsMigrant ? 'Continue' : 'Get started'}</button>`;
+      break;
+    case 'migration':
+      content = `
+        <div style="font-size:40px;margin-bottom:16px">🏡</div>
+        <div class="t-display">We found your family</div>
+        <div class="mt-lg">
+          ${family.children.map(c => `<div class="card card-sm mb-sm"><div class="row"><div class="avatar" style="width:32px;height:32px;font-size:13px">${c.name[0]}</div><span class="t-body-m flex-1">${c.name}</span><span class="t-small t-muted">imported</span></div></div>`).join('')}
+          <div class="row gap-sm mt-md"><span style="color:var(--sage)">✓</span><span class="t-small t-muted">Active paths preserved</span></div>
+          <div class="row gap-sm mt-xs"><span style="color:var(--sage)">✓</span><span class="t-small t-muted">Behaviour history carried over</span></div>
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-sage" style="width:100%" onclick="onboardingNext()">Looks good — continue</button>`;
+      break;
+    case 'childName':
+      content = `
+        <div style="font-size:40px;margin-bottom:16px">👶</div>
+        <div class="t-display">What's your child's name?</div>
+        <p class="t-small t-muted mt-sm">You can add more children later.</p>
+        <div class="mt-lg">
+          <input type="text" id="ob-name" class="ob-input" placeholder="First name" value="${onboardingChildName}" oninput="onboardingChildName=this.value" autocapitalize="words" style="font-size:22px;font-weight:600;border:none;outline:none;background:none;width:100%;padding:8px 0;color:var(--text);border-bottom:2px solid var(--sage)">
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-sage" style="width:100%;opacity:${onboardingChildName?1:0.4}" onclick="${onboardingChildName ? 'onboardingNext()' : ''}">Continue</button>`;
+      break;
+    case 'childDob':
+      content = `
+        <div style="font-size:40px;margin-bottom:16px">🎂</div>
+        <div class="t-display">When were they born?</div>
+        <p class="t-small t-muted mt-sm">We use this to tailor guidance to their developmental stage.</p>
+        <div class="mt-lg">
+          <input type="date" id="ob-dob" class="ob-input" value="${onboardingChildDob}" onchange="onboardingChildDob=this.value" style="font-size:18px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);width:100%">
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-sage" style="width:100%;opacity:${onboardingChildDob?1:0.4}" onclick="${onboardingChildDob ? 'onboardingSaveChild()' : ''}">Continue</button>`;
+      break;
+    case 'addAnother':
+      content = `
+        <div style="font-size:40px;margin-bottom:16px">👦👧</div>
+        <div class="t-display">Any more little ones?</div>
+        <p class="t-body t-muted mt-sm">You can add siblings aged 1–5. Each child gets their own profile.</p>
+        <div class="mt-lg">
+          ${family.children.map(c => `<div class="card card-sm mb-sm"><div class="row"><div class="avatar" style="width:32px;height:32px;font-size:13px">${c.name[0]}</div><span class="t-body-m flex-1">${c.name}</span><span style="color:var(--sage);font-size:14px">✓</span></div></div>`).join('')}
+        </div>
+        <button class="btn btn-outline mt-md" style="width:100%" onclick="onboardingAddAnother()">Add another child</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-sage" style="width:100%" onclick="onboardingNext()">That's everyone</button>`;
+      break;
+    case 'quizIntro':
+      content = `
+        <div style="font-size:40px;margin-bottom:16px">🧩</div>
+        <div class="t-display">Discover their temperament</div>
+        <p class="t-body t-muted mt-sm">10 quick questions about how your child reacts to everyday moments. Takes about 90 seconds.</p>
+        <p class="t-small t-muted mt-md">${onboardingIsMigrant ? 'We\'ll blend your answers with what we already know from your behaviour history.' : 'This helps us personalise every piece of guidance — boundaries, validation, scripts — all shaped for YOUR child.'}</p>
+        <div style="flex:1"></div>
+        <button class="btn btn-sage" style="width:100%" onclick="onboardingStartQuiz()">Start the quiz</button>
+        <button class="btn-text mt-sm" style="width:100%;text-align:center;color:var(--text-lt);background:none;border:none;padding:12px;cursor:pointer" onclick="onboardingNext()">I'll do this later</button>`;
+      break;
+    case 'partnerInvite':
+      content = `
+        <div style="font-size:40px;margin-bottom:16px">🤝</div>
+        <div class="t-display">Invite your co-parent</div>
+        <p class="t-body t-muted mt-sm">Both carers see the same guidance, the same scripts, the same boundaries. Consistency made easy.</p>
+        <div class="mt-lg">
+          <input type="text" class="ob-input" placeholder="Their name" value="${onboardingPartnerName}" oninput="onboardingPartnerName=this.value" style="font-size:16px;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);width:100%;margin-bottom:12px">
+          <input type="email" class="ob-input" placeholder="Email (optional)" value="${onboardingPartnerEmail}" oninput="onboardingPartnerEmail=this.value" style="font-size:16px;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);width:100%;margin-bottom:12px">
+          <div class="row gap-sm" style="flex-wrap:wrap">
+            ${['Co-parent','Grandparent','Nanny','Other'].map(r => `<span class="chip ${onboardingPartnerRole===r?'chip-sage':'chip-muted'}" onclick="onboardingPartnerRole='${r}';render()" style="cursor:pointer">${r}</span>`).join('')}
+          </div>
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-sage" style="width:100%;opacity:${onboardingPartnerName?1:0.4}" onclick="${onboardingPartnerName ? 'onboardingSavePartner();onboardingNext()' : 'onboardingNext()'}">
+          ${onboardingPartnerName ? 'Send invite' : 'Not right now'}
+        </button>
+        ${onboardingPartnerName ? '<button class="btn-text mt-sm" style="width:100%;text-align:center;color:var(--text-lt);background:none;border:none;padding:12px;cursor:pointer" onclick="onboardingNext()">Not right now</button>' : ''}`;
+      break;
+    case 'done':
+      content = `
+        <div style="font-size:40px;margin-bottom:16px">🌿</div>
+        <div class="t-display">You're all set</div>
+        <p class="t-body t-muted mt-sm">OBuddy is ready. Every piece of guidance is now shaped for your family.</p>
+        <div class="mt-lg">
+          ${family.children.map(c => {
+            const t = c.temperament ? temperamentTypes[c.temperament.primaryType] : null;
+            return `<div class="card card-sm mb-sm"><div class="row"><div class="avatar" style="width:36px;height:36px;font-size:14px">${c.name[0]}</div><div class="col gap-xs flex-1" style="margin-left:8px"><span class="t-body-m">${c.name}</span>${t ? `<span class="t-small t-sage">${t.emoji} ${t.label}</span>` : '<span class="t-small t-muted">Quiz pending</span>'}</div><span style="font-size:14px;color:${t?'var(--sage)':'var(--text-lt)'}">${t?'✓':'⏳'}</span></div></div>`;
+          }).join('')}
+          ${family.partner ? `<div class="card card-sm mb-sm"><div class="row"><span style="font-size:20px">🤝</span><div class="col gap-xs flex-1" style="margin-left:8px"><span class="t-body-m">${family.partner.name}</span><span class="t-small t-muted">${family.partner.role} · invited</span></div></div></div>` : ''}
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-sage" style="width:100%" onclick="finishOnboarding()">Enter OBuddy</button>`;
+      break;
+  }
+
+  return `
+    <div class="screen pt-safe" style="display:flex;flex-direction:column;min-height:100vh">
+      <div class="row mb-lg" style="padding-top:8px;justify-content:center;gap:6px">${dots}</div>
+      ${content}
+    </div>`;
+}
+
+function onboardingNext() { const steps = getOnboardingSteps(); if (onboardingStep < steps.length - 1) { onboardingStep++; render(); } }
+function onboardingBack() { if (onboardingStep > 0) { onboardingStep--; render(); } }
+
+function onboardingSaveChild() {
+  if (!onboardingChildName || !onboardingChildDob) return;
+  const dob = new Date(onboardingChildDob);
+  const now = new Date();
+  const months = (now.getFullYear() - dob.getFullYear()) * 12 + now.getMonth() - dob.getMonth();
+  const years = Math.floor(months / 12);
+  const rem = months % 12;
+  const ageStr = months < 24 ? `${months} months` : rem === 0 ? `${years} years` : `${years} yr ${rem}m`;
+  family.children.push({ name: onboardingChildName, age: ageStr, ageMonths: months, temperament: null, rhythm: null, quizCompleted: false });
+  onboardingChildName = '';
+  onboardingChildDob = '';
+  onboardingNext();
+}
+
+function onboardingAddAnother() {
+  // Go back to childName step
+  const steps = getOnboardingSteps();
+  const nameIdx = steps.indexOf('childName');
+  if (nameIdx >= 0) { onboardingStep = nameIdx; render(); }
+}
+
+function onboardingSavePartner() {
+  if (!onboardingPartnerName) return;
+  family.partner = { name: onboardingPartnerName, role: onboardingPartnerRole, email: onboardingPartnerEmail || null, status: 'invited' };
+}
+
+function onboardingStartQuiz() {
+  quizActive = true;
+  quizStep = 0;
+  quizAnswers = [];
+  render();
+}
+
+function finishOnboarding() {
+  onboardingActive = false;
+  family.activeChildIndex = 0;
+  currentTab = 0;
+  render();
+}
+
+// ── Multi-child switcher ──
+let childSwitcherOpen = false;
+function toggleChildSwitcher() {
+  if (family.children.length < 2) return;
+  childSwitcherOpen = !childSwitcherOpen;
+  render();
+}
+function switchToChild(index) {
+  family.activeChildIndex = index;
+  childSwitcherOpen = false;
+  render();
+}
+
+// ══════════════════════════════════════════════════════════════
 // QUIZ SCREEN
 // ══════════════════════════════════════════════════════════════
 
@@ -420,16 +619,28 @@ function quizBack() {
 }
 function finishQuiz() {
   const answerScores = quizAnswers.map((ai, qi) => quizQuestions[qi].options[ai].scores);
-  childProfile.temperament = scoreQuiz(answerScores);
-  quizActive = false;
-  currentTab = 4; // show profile
+  const result = scoreQuiz(answerScores);
+
+  if (onboardingActive) {
+    // During onboarding — assign to current child being set up
+    const child = family.children[family.children.length - 1] || family.children[0];
+    if (child) { child.temperament = result; child.quizCompleted = true; }
+    quizActive = false;
+    onboardingNext(); // move past quizIntro
+  } else {
+    // Post-onboarding retake
+    activeChild().temperament = result;
+    activeChild().quizCompleted = true;
+    quizActive = false;
+    currentTab = 4; // show profile
+  }
   render();
 }
 function skipQuiz() {
-  // Default to easygoing if skipped
-  childProfile.temperament = { primaryType: 'easygoing', secondaryType: null,
-    traitScores: { 'easygoing': 60, 'strong-willed': 30, 'sensitive': 30, 'cautious': 30, 'independent': 30 } };
   quizActive = false;
+  if (onboardingActive) {
+    onboardingNext();
+  }
   render();
 }
 function startQuiz() {
@@ -492,15 +703,27 @@ function renderHome() {
   return `
     <div class="screen pt-safe">
       <div class="row mb-lg" style="padding-top:8px">
-        <div class="avatar">O</div>
-        <div class="col gap-xs flex-1">
-          <div class="row gap-sm"><span class="t-sub">${childProfile.name}</span><span class="t-muted" style="font-size:16px">▾</span></div>
+        <div class="avatar" onclick="toggleChildSwitcher()">${(activeChild()?.name || 'O')[0]}</div>
+        <div class="col gap-xs flex-1" onclick="toggleChildSwitcher()" style="cursor:pointer">
+          <div class="row gap-sm"><span class="t-sub">${childProfile.name}</span>${family.children.length > 1 ? '<span class="t-muted" style="font-size:16px">▾</span>' : ''}</div>
           <span class="t-small">${childProfile.age}${tType ? ' · ' + tType.emoji + ' ' + tType.label : ''}</span>
         </div>
         <div style="width:40px;height:40px;border-radius:50%;background:var(--card);box-shadow:var(--shadow-sm);display:flex;align-items:center;justify-content:center">
           <span style="font-size:18px;color:var(--text-mid)">🔔</span>
         </div>
       </div>
+
+      ${childSwitcherOpen ? `
+      <div class="card mb-md" style="border:1px solid var(--sage);background:var(--card)">
+        <div class="t-label mb-sm">SWITCH CHILD</div>
+        ${family.children.map((c, i) => `
+          <div class="row gap-sm mb-xs" onclick="switchToChild(${i})" style="cursor:pointer;padding:8px;border-radius:8px;${i===family.activeChildIndex?'background:rgba(111,168,152,0.08)':''}">
+            <div class="avatar" style="width:32px;height:32px;font-size:13px;${i===family.activeChildIndex?'background:var(--sage);color:white':'background:var(--sand)'}">${c.name[0]}</div>
+            <div class="flex-1"><span class="t-body-m">${c.name}</span><br><span class="t-small t-muted">${c.age}</span></div>
+            ${i===family.activeChildIndex ? '<span style="color:var(--sage);font-size:14px">✓</span>' : ''}
+          </div>
+        `).join('')}
+      </div>` : ''}
 
       <!-- Hero Card -->
       <div class="card" style="padding:24px">
@@ -934,7 +1157,10 @@ function render() {
   const main = document.getElementById('main');
   const nav = document.getElementById('nav');
 
-  if (quizActive) {
+  if (onboardingActive && !quizActive) {
+    nav.classList.add('hidden');
+    main.innerHTML = renderOnboarding();
+  } else if (quizActive) {
     nav.classList.add('hidden');
     main.innerHTML = renderQuizScreen();
   } else if (currentOverlay) {
@@ -961,10 +1187,34 @@ function render() {
   window.scrollTo(0, 0);
 }
 
-// ── Init: show quiz if no temperament ──
+// ── Init: start with onboarding ──
 document.addEventListener('DOMContentLoaded', () => {
-  if (!childProfile.temperament) {
-    quizActive = true;
+  // Check if already onboarded (localStorage)
+  const saved = localStorage.getItem('obuddy_family');
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      family.children = data.children || [];
+      family.activeChildIndex = data.activeChildIndex || 0;
+      family.partner = data.partner || null;
+      family.migratedFromOBubba = data.migratedFromOBubba || false;
+      onboardingActive = false;
+    } catch (_) {}
   }
   render();
 });
+
+// ── Persist family on changes ──
+function saveFamily() {
+  localStorage.setItem('obuddy_family', JSON.stringify(family));
+}
+
+// Override finishOnboarding to also persist
+const _origFinish = finishOnboarding;
+finishOnboarding = function() {
+  onboardingActive = false;
+  family.activeChildIndex = 0;
+  saveFamily();
+  currentTab = 0;
+  render();
+};
